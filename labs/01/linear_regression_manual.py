@@ -41,6 +41,8 @@ def main(args: argparse.Namespace) -> float:
     # TODO: Manually compute root mean square error on the test set predictions.
     rmse = ...
 
+    print(np.ndarray((2, 3)))
+
     return rmse
 
 
