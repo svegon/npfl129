@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 
+import itertools
 import numpy as np
 import sklearn.datasets
 import sklearn.metrics
@@ -15,8 +16,16 @@ parser.add_argument("--learning_rate", default=0.01, type=float, help="Learning 
 parser.add_argument("--plot", default=False, const=True, nargs="?", type=str, help="Plot the predictions")
 parser.add_argument("--recodex", default=False, action="store_true", help="Running in ReCodEx")
 parser.add_argument("--seed", default=42, type=int, help="Random seed")
-parser.add_argument("--test_size", default=0.5, type=lambda x: int(x) if x.isdigit() else float(x), help="Test size")
+parser.add_argument("--test_size", default=0.5, type=lambda x: int(x) if x.isdigit() else float(x),
+                    help="Test size")
 # If you add more arguments, ReCodEx will keep them with your default values.
+
+
+def sigmoid_function(a):
+    return 1 / (1 + np.exp(-a)) # hopefully most numerically stable
+
+def logistic_regression_predict(weights: np.ndarray, data: np.ndarray) -> np.ndarray:
+    return sigmoid_function(np.dot(data, weights))
 
 
 def main(args: argparse.Namespace) -> tuple[np.ndarray, list[tuple[float, float]]]:
@@ -29,7 +38,9 @@ def main(args: argparse.Namespace) -> tuple[np.ndarray, list[tuple[float, float]
 
     # TODO: Append a constant feature with value 1 to the end of all input data.
     # Then we do not need to explicitly represent bias - it becomes the last weight.
-    data = np.ndarray((data, np.ones((args.data_size,))))
+    data_without_bias = data
+    data = np.ones((data_without_bias.shape[0], data_without_bias.shape[1] + 1))
+    data[:,:-1] = data_without_bias
 
     # TODO: Split the dataset into a train set and a test set.
     # Use `sklearn.model_selection.train_test_split` method call, passing
@@ -49,11 +60,37 @@ def main(args: argparse.Namespace) -> tuple[np.ndarray, list[tuple[float, float]
         # TODO: Process the data in the order of `permutation`. For every
         # `args.batch_size` of them, average their gradient, and update the weights.
         # You can assume that `args.batch_size` exactly divides `train_data.shape[0]`.
+        """grad(-log(sigmoid_function(np.dot(x, weights)))) # gradient in the direction of weights
+        1/(sigmoid_function(np.dot(x, weights))*(1+np.exp(-np.dot(x, weights)))**2)*(-np.exp(-np.dot(x, weights)))*x
+        -np.exp(-np.dot(x, weights))/(sigmoid_function(np.dot(x, weights))*(1+np.exp(-np.dot(x, weights)))**2)*x
+        -(np.exp(-np.dot(x, weights)*(1+np.exp(-np.dot(x, weights))))/(1+np.exp(-np.dot(x, weights)))**2)*x"""
+        """
+        -1/(1-sigmoid_function(np.dot(x, weights))*(1+np.exp(-np.dot(x, weights)))**2)*(-np.exp(-np.dot(x, weights)))*x
+        np.exp(-np.dot(x, weights))**2/((1+np.exp(-np.dot(x, weights)))*(1+np.exp(-np.dot(x, weights)))**2)*x
+        np.exp(-np.dot(x, weights))**2/(1+np.exp(-np.dot(x, weights)))**3*x
+        """
+        for batch in itertools.batched(permutation, args.batch_size):
+            g = np.zeros_like(weights)
+
+            for i in batch:
+                x = train_data[i]
+                y = train_target[i]
+
+                g += (sigmoid_function(np.dot(x, weights)) - y)*x
+
+            g /= args.batch_size
+            weights -= args.learning_rate * g
+
 
         # TODO: After the SGD epoch, measure the average loss and accuracy for both the
         # train set and the test set. The loss is the average MLE loss (i.e., the
         # negative log-likelihood, or cross-entropy loss, or KL loss) per example.
-        train_accuracy, train_loss, test_accuracy, test_loss = ...
+        predicted_train_probabilities = logistic_regression_predict(weights, train_data)
+        predicted_test_probabilities = logistic_regression_predict(weights, test_data)
+        train_accuracy = sklearn.metrics.accuracy_score(train_target, predicted_train_probabilities >= 0.5)
+        test_accuracy = sklearn.metrics.accuracy_score(test_target, predicted_test_probabilities >= 0.5)
+        train_loss = sklearn.metrics.log_loss(train_target, predicted_train_probabilities)
+        test_loss = sklearn.metrics.log_loss(train_target, predicted_test_probabilities)
 
         print("After epoch {}: train loss {:.4f} acc {:.1f}%, test loss {:.4f} acc {:.1f}%".format(
             epoch + 1, train_loss, 100 * train_accuracy, test_loss, 100 * test_accuracy))

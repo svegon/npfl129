@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 
+import itertools
 import numpy as np
 import sklearn.datasets
 import sklearn.linear_model
@@ -30,11 +31,18 @@ def main(args: argparse.Namespace) -> tuple[list[float], float, float]:
 
     # TODO: Append a constant feature with value 1 to the end of all input data.
     # Then we do not need to explicitly represent bias - it becomes the last weight.
+    data_without_bias = data
+    data = np.ones((data.shape[0], data.shape[1] + 1))
+    data[:,:-1] = data_without_bias
 
     # TODO: Split the dataset into a train set and a test set.
     # Use `sklearn.model_selection.train_test_split` method call, passing
     # arguments `test_size=args.test_size, random_state=args.seed`.
-    train_data, test_data, train_target, test_target = ...
+    train_data, test_data, train_target, test_target = sklearn.model_selection.train_test_split(
+        data, target,
+        test_size=args.test_size,
+        random_state=args.seed
+    )
 
     # Generate initial linear regression weights.
     weights = generator.uniform(size=train_data.shape[1], low=-0.1, high=0.1)
@@ -53,14 +61,25 @@ def main(args: argparse.Namespace) -> tuple[list[float], float, float]:
         #   where we set the bias to zero because the bias should not be regularized,
         # and the SGD update is
         #   weights = weights - args.learning_rate * gradient
+        for batch in itertools.batched(permutation, args.batch_size):
+            batch = np.array(batch)
+            errors = np.dot(train_data[batch], weights) - train_target[batch]
+            gradient = train_data[batch]
+
+            for i in range(gradient.shape[0]):
+                gradient[i] *= errors[i]
+
+            gradient = np.sum(gradient, axis=0) / args.batch_size
+            weights -= args.learning_rate * gradient
 
         # TODO: Append current RMSE on train/test to `train_rmses`/`test_rmses`.
-        train_rmses.append(...)
-        test_rmses.append(...)
+        train_rmses.append(sklearn.metrics.root_mean_squared_error(train_target, np.dot(train_data, weights)))
+        test_rmses.append(sklearn.metrics.root_mean_squared_error(test_target, np.dot(test_data, weights)))
 
     # TODO: Compute into `explicit_rmse` test data RMSE when fitting
     # `sklearn.linear_model.LinearRegression()` on `train_data` (ignoring `args.l2`).
-    explicit_rmse = ...
+    explicit_rmse = sklearn.metrics.root_mean_squared_error(test_target, sklearn.linear_model.LinearRegression()
+                                                            .fit(train_data, train_target).predict(test_data))
 
     if args.plot:
         import matplotlib.pyplot as plt
