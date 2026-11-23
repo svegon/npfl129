@@ -79,12 +79,11 @@ def main(args: argparse.Namespace) -> float:
 
         if args.tf:
             for i, document in enumerate(documents):
-                for term, count in Counter(document).items():
-                    if term in vocabulary:
-                        features[i, vocabulary[term]] = count
-                    total = features[i].sum()
-                    if total > 0:  # guard against documents with no vocabulary terms
-                        features[i] /= total
+                for term, count in Counter(filter(vocabulary.__contains__, document)).items():
+                    features[i, vocabulary[term]] = count
+                total = features[i].sum()
+                if total > 0:  # guard against documents with no vocabulary terms
+                    features[i] /= total
         else:
             for i, document in enumerate(documents):
                 for term in filter(vocabulary.__contains__, document):
