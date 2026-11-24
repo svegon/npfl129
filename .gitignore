@@ -6,3 +6,7 @@
 
 .claude
 .mcp.json
+
+*.npz
+imdb_train.txt
+*.pickle
