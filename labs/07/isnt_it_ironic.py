@@ -23,6 +23,8 @@ import urllib.request
 
 import numpy as np
 import numpy.typing as npt
+import sklearn
+from sklearn.neural_network import MLPClassifier
 
 parser = argparse.ArgumentParser()
 # These arguments will be set appropriately by ReCodEx, even if you change them.
@@ -55,7 +57,6 @@ class Dataset:
                 self.target.append(int(label))
         self.target = np.array(self.target, np.int32)
 
-
 def main(args: argparse.Namespace) -> Optional[npt.ArrayLike]:
     if args.predict is None:
         # We are training a model.
@@ -63,12 +64,15 @@ def main(args: argparse.Namespace) -> Optional[npt.ArrayLike]:
         train = Dataset()
 
         # TODO: Train a model on the given dataset and store it in `model`.
-        model = ...
+        model = sklearn.pipeline.Pipeline([
+            ("scaler", sklearn.preprocessing.StandardScaler()),
+            ("MLP", MLPClassifier(solver='lbfgs', alpha=1e-5,
+                    hidden_layer_sizes=(5, 2), random_state=1)),
+        ])
 
         # Serialize the model.
         with lzma.open(args.model_path, "wb") as model_file:
             pickle.dump(model, model_file)
-
     else:
         # Use the model and return test set predictions.
         test = Dataset(args.predict)
@@ -78,7 +82,7 @@ def main(args: argparse.Namespace) -> Optional[npt.ArrayLike]:
 
         # TODO: Generate `predictions` with the test set predictions, either
         # as a Python list or a NumPy array.
-        predictions = ...
+        predictions = model.predict(test.data)
 
         return predictions
 
